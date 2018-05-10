@@ -37,7 +37,7 @@ private:
 
 	void getXY (float* &x, float* &y, unsigned int n);
 	void getDist (float* x, float* y, float** &dist, unsigned int n);
-	bool linesIntersect (float x1, float x2, float y1, float y2);
+	bool linesIntersect (int i1, int i2, int j1, int j2);
 	void getConnect (float** dist, bool** &connect, unsigned int n);
 
 	void _fprintData (FILE* stream, float* x, float* y, float** dist, bool**  connect, unsigned int n);
@@ -84,6 +84,32 @@ void LedArray::getDist (float* x, float* y, float** &dist, unsigned int n) {
 		}
 		dist[i][i] = 0.0f;
 	}
+}
+
+bool LedArray::linesIntersect (int i1, int i2, int i3, int i4) {
+	float x1 = x[i1];
+	float y1 = y[i1];
+	float x2 = x[i2];
+	float y2 = y[i2];
+
+	float x3 = x[i3];
+	float y3 = y[i3];
+	float x4 = x[i4];
+	float y4 = y[i4];
+
+	float dx2 = x2 - x1;
+	float dy2 = y2 - y1;
+	float d2 = sqrt((dx2 * dx2) + (dy2 * dy2));
+	float ux2 = dx2 / d2;
+	float uy2 = dy2 / d2;
+
+	float dx4 = x4 - x3;
+	float dy4 = y4 - y3;
+	float d4 = sqrt((dx4 * dx4) + (dy4 * dy));
+	float ux4 = dx4 / d4;
+	float uy4 = dy4 / d4;
+	
+	
 }
 
 void LedArray::getConnect (float** dist, bool** &connect, unsigned int n) {
