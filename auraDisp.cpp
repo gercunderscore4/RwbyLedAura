@@ -17,42 +17,50 @@ using namespace std;
 char screen[WIDTH][HEIGHT] = {' '};
 void drawScreen (void);
 
+void clearScreen (void) {
+    for (int j = 0; j < HEIGHT; j++) {
+        for (int i = 0; i < WIDTH; i++) {
+            screen[i][j] = ' ';
+        }
+    }    
+}
 ////////////
 // INTERFACE
 
 #define EPSILON 0.001f
 
 // hardcoded because it's hardware based
-#define NUM_OF_LEDS 32
+#define NUM_OF_LEDS 5
 #define RADIX 8
 
-float dot (x1, y1, x2, y2) {
+float dot (float x1, float y1, float x2, float y2) {
     return (x1 * x2) + (y1 * y2);
 }
 
-float det (x1, y1, x2, y2) {
+float det (float x1, float y1, float x2, float y2) {
     return (x1 * y2) - (y1 * x2);
 }
 
 class LedArray {
 
 private:
-    float ledX[NUM_OF_LEDS] = {0.0f};
-    float ledY[NUM_OF_LEDS] = {0.0f};
+    int n = NUM_OF_LEDS;
+    float x[NUM_OF_LEDS] = {0.0f};
+    float y[NUM_OF_LEDS] = {0.0f};
 
-    float distances[NUM_OF_LEDS][NUM_OF_LEDS] = {0.0f};
-    bool connections[NUM_OF_LEDS][NUM_OF_LEDS] = {true};
+    float dist[NUM_OF_LEDS][NUM_OF_LEDS] = {0.0f};
+    bool connect[NUM_OF_LEDS][NUM_OF_LEDS] = {true};
 
-    unsigned int ledPwm[NUM_OF_LEDS] = {0};
+    unsigned int pwm[NUM_OF_LEDS] = {0};
 
-    void getXY (float* &x, float* &y, unsigned int n);
-    void getDist (float* x, float* y, float** &dist, unsigned int n);
-    bool linesIntersect (int i1, int i2, int j1, int j2);
-    void getConnect (float** dist, bool** &connect, unsigned int n);
+    void getXY (void);
+    void getDist (void);
+    bool linesIntersect (int i1, int i2, int i3, int i4);
+    void getConnect (void);
 
-    void _fprintData (FILE* stream, float* x, float* y, float** dist, bool**  connect, unsigned int n);
-    void _fprintDisplay (FILE* stream, float* x, float* y, unsigned int* ledPwm, unsigned int n);
-    void _fprintConnect (FILE* stream, float* x, float* y, bool** connect, unsigned int n);
+    void _fprintData (FILE* stream);
+    void _fprintDisplay (FILE* stream);
+    void _fprintConnect (FILE* stream);
 
 public:
     LedArray (void);
@@ -60,33 +68,33 @@ public:
 
     void calculatePwm (void);
 
-    void printData (float* x, float* y, float** dist, bool**  connect, unsigned int n);
-    void printDisplay (float* x, float* y, unsigned int* ledPwm, unsigned int n);
-    void printConnect (float* x, float* y, bool** connect, unsigned int n);
+    void printData (void);
+    void printDisplay (void);
+    void printConnect (void);
 
-    void fprintData (float* x, float* y, float** dist, bool**  connect, unsigned int n);
-    void fprintDisplay (float* x, float* y, unsigned int* ledPwm, unsigned int n);
-    void fprintConnect (float* x, float* y, bool** connect, unsigned int n);
+    void fprintData (void);
+    void fprintDisplay (void);
+    void fprintConnect (void);
 };
 
 LedArray::LedArray (void) {
-    getXY (x, y, n);
-    getDist (x, y, dist, n);
-    getConnect (dist, connect, n);
+    getXY();
+    getDist();
+    getConnect();
 }
 
 LedArray::~LedArray (void) {
     
 }
 
-void LedArray::getXY (float* &x, float* &y, unsigned int n) {
+void LedArray::getXY (void) {
     for (int i = 0; i < n; i++) {
         x[i] = (((float) rand()) / INT_MAX) * WIDTH;
         y[i] = (((float) rand()) / INT_MAX) * HEIGHT;
     }
 }
 
-void LedArray::getDist (float* x, float* y, float** &dist, unsigned int n) {
+void LedArray::getDist (void) {
     for (int i = 0; i < n; i++) {
         for (int j = 0; j < i; j++) {
             float dx = x[j] - x[i];
@@ -176,7 +184,7 @@ bool LedArray::linesIntersect (int i1, int i2, int i3, int i4) {
     }
 }
 
-void LedArray::getConnect (float** dist, bool** &connect, unsigned int n) {
+void LedArray::getConnect (void) {
     for (int i = 0; i < n; i++) {
         for (int j = 0; j < i; j++) {
             // dist[i][j]
@@ -201,18 +209,18 @@ void LedArray::getConnect (float** dist, bool** &connect, unsigned int n) {
     }
 }
 
-void LedArray::_fprintData (FILE* stream, float* x, float* y, float** dist, bool**  connect, unsigned int n) {
+void LedArray::_fprintData (FILE* stream) {
     fprintf(stream, "POINTS:\n");
     fprintf(stream, "  i     x     y\n");
     for (int i = 0; i < n; i++) {
-        fprintf(stream, "%3d %5.2f %5.2f\n", x[i], y[i]);
+        fprintf(stream, "%3d %5.2f %5.2f\n", i, x[i], y[i]);
     }
     fprintf(stream, "\n");
 
     fprintf(stream, "distance:\n");
     fprintf(stream, "      ");
     for (int i = 0; i < n; i++) {
-        fprintf(stream, "   %3d\n", i);
+        fprintf(stream, "   %3d", i);
     }
     fprintf(stream, "\n");
     for (int j = 0; j < n; j++) {
@@ -227,7 +235,7 @@ void LedArray::_fprintData (FILE* stream, float* x, float* y, float** dist, bool
     fprintf(stream, "connection:\n");
     fprintf(stream, "   ");
     for (int i = 0; i < n; i++) {
-        fprintf(stream, "%3d\n", i);
+        fprintf(stream, "%3d", i);
     }
     fprintf(stream, "\n");
     for (int j = 0; j < n; j++) {
@@ -240,20 +248,37 @@ void LedArray::_fprintData (FILE* stream, float* x, float* y, float** dist, bool
     fprintf(stream, "\n");    
 }
 
-void LedArray::_fprintDisplay (FILE* stream, float* x, float* y, unsigned int* ledPwm, unsigned int n) {
+void LedArray::_fprintDisplay (FILE* stream) {
+	clearScreen();
+	
     for (int i = 0; i < n; i++) {
-        screen[(int)x[i]][(int)y[i]] = (char) (0x30 + ledPwm[i]);
+        screen[(int)x[i]][(int)y[i]] = (char) (0x30 + pwm[i]);
     }
 
+    fprintf(stream, "+");
+    for (int i = 0; i < WIDTH; i++) {
+        fprintf(stream, "-");
+    }
+    fprintf(stream, "+\n");
+
     for (int j = 0; j < HEIGHT; j++) {
+        fprintf(stream, "|");
         for (int i = 0; i < WIDTH; i++) {
             fprintf(stream, "%c", screen[i][j]);
         }
-        fprintf(stream, "\n");
+        fprintf(stream, "|\n");
     }
+
+    fprintf(stream, "+");
+    for (int i = 0; i < WIDTH; i++) {
+        fprintf(stream, "-");
+    }
+    fprintf(stream, "+\n");
 }
     
-void LedArray::_fprintConnect (FILE* stream, float* x, float* y, bool** connect, unsigned int n) {
+void LedArray::_fprintConnect (FILE* stream) {
+	clearScreen();
+	
     for (int i = 0; i < n; i++) {
         for (int j = 0; j < n; j++) {
             if (connect[i][j]) {
@@ -280,46 +305,40 @@ void LedArray::_fprintConnect (FILE* stream, float* x, float* y, bool** connect,
     for (int i = 0; i < n; i++) {
         screen[(int)x[i]][(int)y[i]] = 'O';    
     }
-
-    for (int j = 0; j < HEIGHT; j++) {
-        for (int i = 0; i < WIDTH; i++) {
-            screen[i][j] = ' ';
-        }
-    }    
 }
 
-void LedArray::printData (float* x, float* y, float** dist, bool**  connect, unsigned int n) {
-    _fprintData(stdout, x, y, dist, connect, n);
+void LedArray::printData (void) {
+    _fprintData(stdout);
 }
 
-void LedArray::printDisplay (float* x, float* y, unsigned int* ledPwm, unsigned int n) {
-    _fprintDisplay(stdout, x, y, ledPwm, n);
+void LedArray::printDisplay (void) {
+    _fprintDisplay(stdout);
 }
 
-void LedArray::printConnect (float* x, float* y, bool** connect, unsigned int n) {
-    _fprintConnect(stdout, x, y, connect, n);
+void LedArray::printConnect (void) {
+    _fprintConnect(stdout);
 }
 
-void LedArray::fprintData (float* x, float* y, float** dist, bool**  connect, unsigned int n) {
+void LedArray::fprintData (void) {
     FILE* fout = fopen("aura_data.txt", "w");
     if (fout != NULL) {
-        _fprintData(fout, x, y, dist, connect, n);
+        _fprintData(fout);
         fclose(fout);
     }
 }
 
-void LedArray::fprintDisplay (float* x, float* y, unsigned int* ledPwm, unsigned int n) {
+void LedArray::fprintDisplay (void) {
     FILE* fout = fopen("aura_display.txt", "w");
     if (fout != NULL) {
-        _fprintDisplay(fout, x, y, ledPwm, n);
+        _fprintDisplay(fout);
         fclose(fout);
     }
 }
 
-void LedArray::fprintConnect (float* x, float* y, bool** connect, unsigned int n) {
+void LedArray::fprintConnect (void) {
     FILE* fout = fopen("aura_connect.txt", "w");
     if (fout != NULL) {
-        _fprintConnect(fout, x, y, connect, n);
+        _fprintConnect(fout);
         fclose(fout);
     }
 }
@@ -330,7 +349,14 @@ void LedArray::fprintConnect (float* x, float* y, bool** connect, unsigned int n
 int main (void) {
     printf("Hello, brave, new World!\n");
     
-    
+    LedArray leds;
+    leds.printData();
+    leds.printDisplay();
+    leds.printConnect();
+
+    leds.fprintData();
+    leds.fprintDisplay();
+    leds.fprintConnect();
     
     printf("Good-bye, cruel World!\n");
     return 0;
