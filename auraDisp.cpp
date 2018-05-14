@@ -2,6 +2,7 @@
 #include <cstdlib>
 #include <cmath>
 #include <climits>
+#include <ctime>
 
 using namespace std;
 
@@ -11,8 +12,8 @@ using namespace std;
 //////////
 // DISPLAY
 
-#define WIDTH  30
-#define HEIGHT 10
+#define WIDTH  90
+#define HEIGHT 20
 
 char screen[WIDTH][HEIGHT] = {' '};
 void drawScreen (void);
@@ -59,8 +60,12 @@ private:
     void getConnect (void);
 
     void _fprintData (FILE* stream);
+    void _fprintScreen (FILE* stream);
     void _fprintDisplay (FILE* stream);
-    void _fprintConnect (FILE* stream);
+    void _fprintConnections (FILE* stream);
+    void _fprintPoints (FILE* stream);
+    void _fprintConnectMatrix (FILE* stream);
+    void _fprintDistMatrix (FILE* stream);
 
 public:
     LedArray (void);
@@ -70,14 +75,18 @@ public:
 
     void printData (void);
     void printDisplay (void);
-    void printConnect (void);
+    void printConnections (void);
+    void printPoints (void);
+    void printConnectMatrix (void);
+    void printDistMatrix (void);
 
     void fprintData (void);
     void fprintDisplay (void);
-    void fprintConnect (void);
+    void fprintConnections (void);
 };
 
 LedArray::LedArray (void) {
+	n = NUM_OF_LEDS;
     getXY();
     getDist();
     getConnect();
@@ -89,8 +98,12 @@ LedArray::~LedArray (void) {
 
 void LedArray::getXY (void) {
     for (int i = 0; i < n; i++) {
-        x[i] = (((float) rand()) / INT_MAX) * WIDTH;
-        y[i] = (((float) rand()) / INT_MAX) * HEIGHT;
+        //x[i] = (((float) rand()) / INT_MAX) * WIDTH;
+        //y[i] = (((float) rand()) / INT_MAX) * HEIGHT;
+        
+        float t = (((float) rand()) / INT_MAX) * 6.28f;
+        x[i] = (WIDTH  / 2.0f) + (WIDTH  * 0.4f * cos(t));
+        y[i] = (HEIGHT / 2.0f) + (HEIGHT * 0.4f * sin(t));
     }
 }
 
@@ -186,6 +199,12 @@ bool LedArray::linesIntersect (int i1, int i2, int i3, int i4) {
 
 void LedArray::getConnect (void) {
     for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+        	connect[i][j] = true;
+        }
+    }
+    
+    for (int i = 0; i < n; i++) {
         for (int j = 0; j < i; j++) {
             // dist[i][j]
             
@@ -198,25 +217,30 @@ void LedArray::getConnect (void) {
                         // dist[h][k]
                         if (dist[i][j] >= dist[k][h]) {
                             connect[k][h] = false;
+                            connect[h][k] = false;
                         } else {
                             connect[i][j] = false;
+                            connect[j][i] = false;
                         }
                     }
                 }
             }
         }
         connect[i][i] = false;
+        printConnectMatrix();
     }
 }
 
-void LedArray::_fprintData (FILE* stream) {
+void LedArray::_fprintPoints (FILE* stream) {
     fprintf(stream, "POINTS:\n");
     fprintf(stream, "  i     x     y\n");
     for (int i = 0; i < n; i++) {
         fprintf(stream, "%3d %5.2f %5.2f\n", i, x[i], y[i]);
     }
     fprintf(stream, "\n");
+}
 
+void LedArray::_fprintDistMatrix (FILE* stream) {
     fprintf(stream, "distance:\n");
     fprintf(stream, "      ");
     for (int i = 0; i < n; i++) {
@@ -231,7 +255,9 @@ void LedArray::_fprintData (FILE* stream) {
         fprintf(stream, "\n");
     }
     fprintf(stream, "\n");    
+}
 
+void LedArray::_fprintConnectMatrix (FILE* stream) {
     fprintf(stream, "connection:\n");
     fprintf(stream, "   ");
     for (int i = 0; i < n; i++) {
@@ -248,13 +274,14 @@ void LedArray::_fprintData (FILE* stream) {
     fprintf(stream, "\n");    
 }
 
-void LedArray::_fprintDisplay (FILE* stream) {
-	clearScreen();
-	
-    for (int i = 0; i < n; i++) {
-        screen[(int)x[i]][(int)y[i]] = (char) (0x30 + pwm[i]);
-    }
+void LedArray::_fprintData (FILE* stream) {
+	fprintf(stream, "N = %d\n\n", n);
+	_fprintPoints(stream);
+	_fprintDistMatrix(stream);
+	_fprintConnectMatrix(stream);
+}
 
+void LedArray::_fprintScreen(FILE* stream) {
     fprintf(stream, "+");
     for (int i = 0; i < WIDTH; i++) {
         fprintf(stream, "-");
@@ -276,7 +303,16 @@ void LedArray::_fprintDisplay (FILE* stream) {
     fprintf(stream, "+\n");
 }
     
-void LedArray::_fprintConnect (FILE* stream) {
+void LedArray::_fprintDisplay (FILE* stream) {
+	clearScreen();
+	
+    for (int i = 0; i < n; i++) {
+        screen[(int)x[i]][(int)y[i]] = (char) (0x30 + pwm[i]);
+    }
+    _fprintScreen(stream);
+}
+
+void LedArray::_fprintConnections (FILE* stream) {
 	clearScreen();
 	
     for (int i = 0; i < n; i++) {
@@ -292,11 +328,23 @@ void LedArray::_fprintConnect (FILE* stream) {
                 float dy = y2 - y1;
                 float xoy = dx/dy;
                 float yox = dy/dx;
-                for (int t = 0; t < (int)dx; t++) {
-                    screen[(int)(x1 + t)][(int)(y1 + (yox * t))] = 'X';
+                int dirx = (x2 > x1) ? 1 : -1;
+                int diry = (y2 > y1) ? 1 : -1;
+                
+                //printf("From: %5.2f %5.2f\n", x1, y1);
+                //printf("To:   %5.2f %5.2f\n", x2, y2);
+                
+                for (int t = 0; abs(t) < (int)abs(dx); t += dirx) {
+                	int xt = (int)(x1 + t);
+                	int yt = (int)(y1 + (yox * t));
+                    screen[xt][yt] = 'X';
+	                //printf("x     %2d %2d\n", xt, yt);
                 }
-                for (int t = 0; t < (int)dy; t++) {
-                    screen[(int)(x1 + (xoy * t))][(int)(y1 + t)] = 'X';
+                for (int t = 0; abs(t) < (int)abs(dy); t += diry) {
+                	int xt = (int)(x1 + (xoy * t));
+                	int yt = (int)(y1 + t);
+                    screen[xt][yt] = 'X';
+	                //printf("y     %2d %2d\n", xt, yt);
                 }
             }
         }
@@ -305,6 +353,20 @@ void LedArray::_fprintConnect (FILE* stream) {
     for (int i = 0; i < n; i++) {
         screen[(int)x[i]][(int)y[i]] = 'O';    
     }
+    
+    _fprintScreen(stream);
+}
+
+void LedArray::printPoints (void) {
+    _fprintPoints(stdout);
+}
+
+void LedArray::printDistMatrix (void) {
+    _fprintDistMatrix(stdout);
+}
+
+void LedArray::printConnectMatrix (void) {
+    _fprintConnectMatrix(stdout);
 }
 
 void LedArray::printData (void) {
@@ -315,8 +377,8 @@ void LedArray::printDisplay (void) {
     _fprintDisplay(stdout);
 }
 
-void LedArray::printConnect (void) {
-    _fprintConnect(stdout);
+void LedArray::printConnections (void) {
+    _fprintConnections(stdout);
 }
 
 void LedArray::fprintData (void) {
@@ -335,10 +397,10 @@ void LedArray::fprintDisplay (void) {
     }
 }
 
-void LedArray::fprintConnect (void) {
+void LedArray::fprintConnections (void) {
     FILE* fout = fopen("aura_connect.txt", "w");
     if (fout != NULL) {
-        _fprintConnect(fout);
+        _fprintConnections(fout);
         fclose(fout);
     }
 }
@@ -349,14 +411,16 @@ void LedArray::fprintConnect (void) {
 int main (void) {
     printf("Hello, brave, new World!\n");
     
+    srand(time(NULL));
+    
     LedArray leds;
     leds.printData();
     leds.printDisplay();
-    leds.printConnect();
+    leds.printConnections();
 
     leds.fprintData();
     leds.fprintDisplay();
-    leds.fprintConnect();
+    leds.fprintConnections();
     
     printf("Good-bye, cruel World!\n");
     return 0;
