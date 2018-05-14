@@ -12,8 +12,8 @@ using namespace std;
 //////////
 // DISPLAY
 
-#define WIDTH  90
-#define HEIGHT 20
+#define WIDTH   99
+#define HEIGHT  40
 
 char screen[WIDTH][HEIGHT] = {' '};
 void drawScreen (void);
@@ -23,8 +23,19 @@ void clearScreen (void) {
         for (int i = 0; i < WIDTH; i++) {
             screen[i][j] = ' ';
         }
-    }    
+    }
 }
+
+char getDecChar (int d) {
+    return (char) 0x30 + (d % 10);
+}
+
+char getHexChar (int d) {
+    d %= 16;
+    d += (d >= 10) ? 0x40 : 0x30; // letter if >= 10
+    return (char) d;
+}
+
 ////////////
 // INTERFACE
 
@@ -44,30 +55,34 @@ float det (float x1, float y1, float x2, float y2) {
 
 class LedArray {
 
-private:
-    int n = NUM_OF_LEDS;
-    float x[NUM_OF_LEDS] = {0.0f};
-    float y[NUM_OF_LEDS] = {0.0f};
+public:
+    int n;
+    float* x;
+    float* y;
 
-    float dist[NUM_OF_LEDS][NUM_OF_LEDS] = {0.0f};
-    bool connect[NUM_OF_LEDS][NUM_OF_LEDS] = {true};
+    float** dist;
+    bool** connect;
 
-    unsigned int pwm[NUM_OF_LEDS] = {0};
+    unsigned int* pwm;
 
     void getXY (void);
     void getDist (void);
     bool linesIntersect (int i1, int i2, int i3, int i4);
     void getConnect (void);
 
-    void _fprintData (FILE* stream);
+    void drawLine(int i,int j);
     void _fprintScreen (FILE* stream);
-    void _fprintDisplay (FILE* stream);
-    void _fprintConnections (FILE* stream);
+
     void _fprintPoints (FILE* stream);
+
     void _fprintConnectMatrix (FILE* stream);
     void _fprintDistMatrix (FILE* stream);
 
-public:
+    void _fprintDisplay (FILE* stream);
+    void _fprintConnections (FILE* stream);
+
+    void _fprintData (FILE* stream);
+
     LedArray (void);
     ~LedArray (void);
 
@@ -87,21 +102,43 @@ public:
 
 LedArray::LedArray (void) {
 	n = NUM_OF_LEDS;
+
+    x = (float*) calloc(n, sizeof(float));
+    y = (float*) calloc(n, sizeof(float));
+    pwm = (unsigned int*) calloc(n, sizeof(unsigned int));
+
+    dist = (float**) calloc(n, sizeof(float*));
+    connect = (bool**) calloc(n, sizeof(bool*));
+    for (int i = 0; i < n; i++) {
+        dist[i] = (float*) calloc(n, sizeof(float));
+        connect[i] = (bool*) calloc(n, sizeof(bool));
+    }
+
     getXY();
     getDist();
     getConnect();
 }
 
 LedArray::~LedArray (void) {
+    free(x);
+    free(y);
+    free(pwm);
+
+    for (int i = 0; i < n; i++) {
+        free(dist[i]);
+        free(connect[i]);
+    }
+    free(dist);
+    free(connect);
     
 }
 
 void LedArray::getXY (void) {
     for (int i = 0; i < n; i++) {
-        //x[i] = (((float) rand()) / INT_MAX) * WIDTH;
-        //y[i] = (((float) rand()) / INT_MAX) * HEIGHT;
-        
-        float t = (((float) rand()) / INT_MAX) * 6.28f;
+        //x[i] = ((float) rand() / RAND_MAX) * WIDTH;
+        //y[i] = ((float) rand() / RAND_MAX) * HEIGHT;
+
+        float t = (((float) rand()) / RAND_MAX) * 6.28f;
         x[i] = (WIDTH  / 2.0f) + (WIDTH  * 0.4f * cos(t));
         y[i] = (HEIGHT / 2.0f) + (HEIGHT * 0.4f * sin(t));
     }
@@ -210,24 +247,34 @@ void LedArray::getConnect (void) {
             
             // next, test only connections below this one
             for (int k = 0; k < i; k++) {
-                for (int h = 0; h < k; h++) {
-                    if (connect[k][h] &&
-                        (h != j) &&
-                        linesIntersect(i,j,k,h)) {
-                        // dist[h][k]
-                        if (dist[i][j] >= dist[k][h]) {
-                            connect[k][h] = false;
-                            connect[h][k] = false;
-                        } else {
-                            connect[i][j] = false;
-                            connect[j][i] = false;
+                if (k != j) {
+                    for (int h = 0; h < k; h++) {
+                        if (connect[k][h] &&
+                            (h != j) &&
+                            linesIntersect(i,j,k,h)) {
+                            // dist[h][k]
+                            //printf("i %3d %5.2f %5.2f\n", i, x[i], y[i]);
+                            //printf("j %3d %5.2f %5.2f\n", j, x[j], y[j]);
+                            //printf("k %3d %5.2f %5.2f\n", k, x[k], y[k]);
+                            //printf("h %3d %5.2f %5.2f\n", h, x[h], y[h]);
+                            //clearScreen();
+                            //drawLine(i,j);
+                            //drawLine(k,h);
+                            //_fprintScreen(stdout);
+                            // remove longer
+                            if (dist[i][j] >= dist[k][h]) {
+                                connect[i][j] = false;
+                                connect[j][i] = false;
+                            } else {
+                                connect[k][h] = false;
+                                connect[h][k] = false;
+                            }
                         }
                     }
                 }
             }
         }
         connect[i][i] = false;
-        printConnectMatrix();
     }
 }
 
@@ -312,46 +359,53 @@ void LedArray::_fprintDisplay (FILE* stream) {
     _fprintScreen(stream);
 }
 
+void LedArray::drawLine(int i,int j) {
+    // *sigh*, can't think of a good algorithm
+    // let's just go along x then go along y
+    float x1 = x[i];
+    float y1 = y[i];
+    float x2 = x[j];
+    float y2 = y[j];
+    float dx = x2 - x1;
+    float dy = y2 - y1;
+    float xoy = dx/dy;
+    float yox = dy/dx;
+    int dirx = (x2 > x1) ? 1 : -1;
+    int diry = (y2 > y1) ? 1 : -1;
+    
+    //printf("From: %5.2f %5.2f\n", x1, y1);
+    //printf("To:   %5.2f %5.2f\n", x2, y2);
+    
+    for (int t = 0; abs(t) < (int)abs(dx); t += dirx) {
+        int xt = (int)(x1 + t);
+        int yt = (int)(y1 + (yox * t));
+        screen[xt][yt] = '.';
+        //printf("x     %2d %2d\n", xt, yt);
+    }
+    for (int t = 0; abs(t) < (int)abs(dy); t += diry) {
+        int xt = (int)(x1 + (xoy * t));
+        int yt = (int)(y1 + t);
+        screen[xt][yt] = '.';
+        //printf("y     %2d %2d\n", xt, yt);
+    }
+
+    screen[(int)x[i]][(int)y[i]] = getHexChar(i);
+    screen[(int)x[j]][(int)y[j]] = getHexChar(j);
+}
+
 void LedArray::_fprintConnections (FILE* stream) {
 	clearScreen();
 	
     for (int i = 0; i < n; i++) {
         for (int j = 0; j < n; j++) {
             if (connect[i][j]) {
-                // *sigh*, can't think of a good algorithm
-                // let's just go along x then go along y
-                float x1 = x[i];
-                float y1 = y[i];
-                float x2 = x[j];
-                float y2 = y[j];
-                float dx = x2 - x1;
-                float dy = y2 - y1;
-                float xoy = dx/dy;
-                float yox = dy/dx;
-                int dirx = (x2 > x1) ? 1 : -1;
-                int diry = (y2 > y1) ? 1 : -1;
-                
-                //printf("From: %5.2f %5.2f\n", x1, y1);
-                //printf("To:   %5.2f %5.2f\n", x2, y2);
-                
-                for (int t = 0; abs(t) < (int)abs(dx); t += dirx) {
-                	int xt = (int)(x1 + t);
-                	int yt = (int)(y1 + (yox * t));
-                    screen[xt][yt] = 'X';
-	                //printf("x     %2d %2d\n", xt, yt);
-                }
-                for (int t = 0; abs(t) < (int)abs(dy); t += diry) {
-                	int xt = (int)(x1 + (xoy * t));
-                	int yt = (int)(y1 + t);
-                    screen[xt][yt] = 'X';
-	                //printf("y     %2d %2d\n", xt, yt);
-                }
+                drawLine(i, j);
             }
         }
     }
     
     for (int i = 0; i < n; i++) {
-        screen[(int)x[i]][(int)y[i]] = 'O';    
+        screen[(int)x[i]][(int)y[i]] = getHexChar(i);
     }
     
     _fprintScreen(stream);
@@ -412,16 +466,26 @@ int main (void) {
     printf("Hello, brave, new World!\n");
     
     srand(time(NULL));
-    
-    LedArray leds;
-    leds.printData();
-    leds.printDisplay();
-    leds.printConnections();
 
-    leds.fprintData();
-    leds.fprintDisplay();
-    leds.fprintConnections();
-    
+    for (int k = 0; k < 100; k++) {
+        LedArray leds;
+        int sum = 0;
+        for (int i = 0; i < leds.n; i++) {
+            for (int j = 0; j < leds.n; j++) {
+                sum += (int) leds.connect[i][j];
+            }
+        }
+        printf("sum %d %c\n", sum, sum == 14 ? ' ' : '*');
+
+        //leds.printData();
+        //leds.printDisplay();
+        //leds.printConnections();
+
+        //leds.fprintData();
+        //leds.fprintDisplay();
+        //leds.fprintConnections();
+    }
+
     printf("Good-bye, cruel World!\n");
     return 0;
 }
