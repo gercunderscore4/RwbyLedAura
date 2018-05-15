@@ -45,7 +45,7 @@ char getHexChar (int d) {
 #define EPSILON 0.001f
 
 // hardcoded because it's hardware based
-#define NUM_OF_LEDS 15
+#define NUM_OF_LEDS 4
 
 // pulse width modulation (PWM)
 #define PWM_MOD 8
@@ -101,8 +101,9 @@ public:
     void _fprintScreen (FILE* stream);
 
     void _fprintPoints (FILE* stream);
-    void _fprintConnectMatrix (FILE* stream);
     void _fprintDistMatrix (FILE* stream);
+    void _fprintConnectMatrix (FILE* stream);
+    void _fprintConnectionSum(FILE* stream);
     void _fprintData (FILE* stream);
 
     void _fprintDisplay (FILE* stream);
@@ -127,28 +128,25 @@ public:
 };
 
 LedArray::LedArray (void) {
-    n = NUM_OF_LEDS;
-
-    x = (float*) calloc(n, sizeof(float));
-    y = (float*) calloc(n, sizeof(float));
-    pwm = (unsigned int*) calloc(n, sizeof(unsigned int));
-
-    dist = (float**) calloc(n, sizeof(float*));
-    connect = (bool**) calloc(n, sizeof(bool*));
-    for (int i = 0; i < n; i++) {
-        dist[i] = (float*) calloc(n, sizeof(float));
-        connect[i] = (bool*) calloc(n, sizeof(bool));
-    }
-
+	n = 0;
+	x = NULL;
+	y = NULL;
+	pwm = NULL;
+	dist = NULL;
+	connect = NULL;
+	
     getXY();
     getDist();
     getConnect();
+
+    pwm = (unsigned int*) calloc(n, sizeof(unsigned int));
 }
 
 LedArray::~LedArray (void) {
     free(x);
     free(y);
-    free(pwm);
+    x = NULL;
+    y = NULL;
 
     for (int i = 0; i < n; i++) {
         free(dist[i]);
@@ -156,10 +154,17 @@ LedArray::~LedArray (void) {
     }
     free(dist);
     free(connect);
+    dist = NULL;
+	connect = NULL;
 
+    free(pwm);
+    pwm = NULL;
 }
 
 void LedArray::getXY (void) {
+    n = NUM_OF_LEDS;
+    x = (float*) calloc(n, sizeof(float));
+    y = (float*) calloc(n, sizeof(float));
     for (int i = 0; i < n; i++) {
         x[i] = ((float) rand() / RAND_MAX) * WIDTH;
         y[i] = ((float) rand() / RAND_MAX) * HEIGHT;
@@ -171,7 +176,9 @@ void LedArray::getXY (void) {
 }
 
 void LedArray::getDist (void) {
+    dist = (float**) calloc(n, sizeof(float*));
     for (int i = 0; i < n; i++) {
+        dist[i] = (float*) calloc(n, sizeof(float));
         for (int j = 0; j < i; j++) {
             float dx = x[j] - x[i];
             float dy = y[j] - y[i];
@@ -261,7 +268,9 @@ bool LedArray::linesIntersect (int i1, int i2, int i3, int i4) {
 }
 
 void LedArray::getConnect (void) {
+    connect = (bool**) calloc(n, sizeof(bool*));
     for (int i = 0; i < n; i++) {
+        connect[i] = (bool*) calloc(n, sizeof(bool));
         for (int j = 0; j < n; j++) {
             connect[i][j] = true;
         }
@@ -361,7 +370,10 @@ void LedArray::_fprintData (FILE* stream) {
     _fprintPoints(stream);
     //_fprintDistMatrix(stream);
     _fprintConnectMatrix(stream);
+    _fprintConnectionSum(stream);
+}
 
+void LedArray::_fprintConnectionSum(FILE* stream) {
     // determine if there are the right number of connections
     int sum = 0;
     for (int i = 0; i < n; i++) {
@@ -535,12 +547,13 @@ int main (void) {
 
     srand(time(NULL));
 
-    LedArray leds;
+    for (int i = 0; i < 100; i++) {
+	    LedArray leds;
 
-    leds.printData();
-    leds.printConnections();
+	    //leds.printData();
+ 	   //leds.printConnections();
+ 	   leds._fprintConnectionSum(stdout);
 
-    for (int i = 0; i < 10; i++) {
         //leds.calculatePwm();
         //leds.printDisplay();
     }
