@@ -3,6 +3,8 @@
 #include <cmath>
 #include <climits>
 #include <ctime>
+#include <algorithm>
+#include <functional>
 
 using namespace std;
 
@@ -234,47 +236,65 @@ bool LedArray::linesIntersect (int i1, int i2, int i3, int i4) {
     }
 }
 
+struct index_t {
+    int i;
+    int j;
+};
+
+bool compare (index_t a, index_t b, float** dist) {
+    return dist[a.i][a.j] < dist[b.i][b.j];
+}
+
 void LedArray::getConnect (void) {
     for (int i = 0; i < n; i++) {
         for (int j = 0; j < n; j++) {
-        	connect[i][j] = true;
+            connect[i][j] = true;
         }
     }
     
+    index_t* indices = (index_t*) calloc(n * (n-1) / 2, sizeof(index_t));
+    int k = 0;
     for (int i = 0; i < n; i++) {
         for (int j = 0; j < i; j++) {
-            // dist[i][j]
-            
-            // next, test only connections below this one
-            for (int k = 0; k < i; k++) {
-                if (k != j) {
-                    for (int h = 0; h < k; h++) {
-                        if (connect[k][h] &&
-                            (h != j) &&
-                            linesIntersect(i,j,k,h)) {
-                            // dist[h][k]
-                            //printf("i %3d %5.2f %5.2f\n", i, x[i], y[i]);
-                            //printf("j %3d %5.2f %5.2f\n", j, x[j], y[j]);
-                            //printf("k %3d %5.2f %5.2f\n", k, x[k], y[k]);
-                            //printf("h %3d %5.2f %5.2f\n", h, x[h], y[h]);
-                            //clearScreen();
-                            //drawLine(i,j);
-                            //drawLine(k,h);
-                            //_fprintScreen(stdout);
-                            // remove longer
-                            if (dist[i][j] >= dist[k][h]) {
-                                connect[i][j] = false;
-                                connect[j][i] = false;
-                            } else {
-                                connect[k][h] = false;
-                                connect[h][k] = false;
-                            }
-                        }
-                    }
+            indices[k].i = i;
+            indices[k].j = j;
+            k++;
+        }
+        connect[i][i] = false;
+    }
+    
+    // sort lines fron sortest to longest
+    sort(&indices[0], &indices[k], bind(compare,  placeholders::_1, placeholders::_2, dist));
+    
+    // for each line (from shortest to longest)
+    //     if line exists
+    //         for each longer line
+    //             if longer line exists and
+    //                none of the points are the same and
+    //                they intersect
+    //                 remove the longer line
+    // this will fail if points are same or if lines are parallel
+    // those cases should be rare
+    for (int i = 0; i < k; i++) {
+        int a = indices[i].i;
+        int b = indices[i].j;
+        printf("k = %2d    i = %2d    j = %2d    d = %5.2f\n", i, a, b, dist[a][b]);
+        if (connect[a][b]) {
+            for (int j = i+1; j < k; j++) {
+                int c = indices[j].i;
+                int d = indices[j].j;
+                if (connect[c][d] &&
+                    (a != c) &&
+                    (a != d) &&
+                    (b != c) &&
+                    (b != d) &&
+                    linesIntersect(a, b, c, d)) {
+                    connect[c][d] = false;
+                    connect[d][c] = false;
+                    printf("    i = %2d    j = %2d    d = %5.2f\n", c, d, dist[c][d]);
                 }
             }
         }
-        connect[i][i] = false;
     }
 }
 
@@ -467,24 +487,15 @@ int main (void) {
     
     srand(time(NULL));
 
-    for (int k = 0; k < 100; k++) {
-        LedArray leds;
-        int sum = 0;
-        for (int i = 0; i < leds.n; i++) {
-            for (int j = 0; j < leds.n; j++) {
-                sum += (int) leds.connect[i][j];
-            }
-        }
-        printf("sum %d %c\n", sum, sum == 14 ? ' ' : '*');
+    LedArray leds;
 
-        //leds.printData();
-        //leds.printDisplay();
-        //leds.printConnections();
+    leds.printData();
+    //leds.printDisplay();
+    leds.printConnections();
 
-        //leds.fprintData();
-        //leds.fprintDisplay();
-        //leds.fprintConnections();
-    }
+    leds.fprintData();
+    //leds.fprintDisplay();
+    leds.fprintConnections();
 
     printf("Good-bye, cruel World!\n");
     return 0;
