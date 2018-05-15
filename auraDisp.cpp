@@ -47,6 +47,28 @@ char getHexChar (int d) {
 #define NUM_OF_LEDS 5
 #define RADIX 8
 
+// settings
+
+enum ledMode_t {
+	testMode = 0,
+	allMode  = 1,
+	randMode = 2,
+	calcMode = 3
+};
+
+// used for setting up connections
+
+struct index_t {
+    int i;
+    int j;
+};
+
+bool compare (index_t a, index_t b, float** dist) {
+    return dist[a.i][a.j] < dist[b.i][b.j];
+}
+
+// math
+
 float dot (float x1, float y1, float x2, float y2) {
     return (x1 * x2) + (y1 * y2);
 }
@@ -65,6 +87,7 @@ public:
     float** dist;
     bool** connect;
 
+    ledMode_t mode;
     unsigned int* pwm;
 
     void getXY (void);
@@ -76,14 +99,13 @@ public:
     void _fprintScreen (FILE* stream);
 
     void _fprintPoints (FILE* stream);
-
     void _fprintConnectMatrix (FILE* stream);
     void _fprintDistMatrix (FILE* stream);
+    void _fprintData (FILE* stream);
 
     void _fprintDisplay (FILE* stream);
     void _fprintConnections (FILE* stream);
 
-    void _fprintData (FILE* stream);
 
     LedArray (void);
     ~LedArray (void);
@@ -234,15 +256,6 @@ bool LedArray::linesIntersect (int i1, int i2, int i3, int i4) {
         return ((0.0f <= t) && (t <= 1.0f)) && 
                ((0.0f <= s) && (s <= 1.0f));
     }
-}
-
-struct index_t {
-    int i;
-    int j;
-};
-
-bool compare (index_t a, index_t b, float** dist) {
-    return dist[a.i][a.j] < dist[b.i][b.j];
 }
 
 void LedArray::getConnect (void) {
@@ -477,6 +490,24 @@ void LedArray::fprintConnections (void) {
         _fprintConnections(fout);
         fclose(fout);
     }
+}
+
+void LedArray::calculatePwm (void) {
+	// read settings
+	mode = calcMode;
+	
+	switch (mode) {
+		case testMode:
+			break;
+		case allMode:
+			break;
+		case randMode:
+			break;
+		case calcMode:
+			break;
+		default:
+			break;
+	}
 }
 
 ///////
