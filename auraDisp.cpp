@@ -1,15 +1,25 @@
 #include <cstdio>
-#include <cstdlib>
-#include <cmath>
-#include <ctime>
+#include <cstdlib> // rand
+#include <cmath>   // abs
+#include <ctime>   // time for srand, clock for delay
 
 using namespace std;
+
+/******************************************************************************
+ * DELAY                                                                      *
+ ******************************************************************************/
+
+void delay (float seconds) { 
+  clock_t endwait = clock() + (int) (seconds * CLOCKS_PER_SEC);
+  while (clock() < endwait);
+}
 
 ///////////
 // PATTERNS
 
-//////////
-// DISPLAY
+/******************************************************************************
+ * DISPLAY                                                                    *
+ ******************************************************************************/
 
 #define WIDTH   50
 #define HEIGHT  20
@@ -35,14 +45,15 @@ char getHexChar (int d) {
     return (char) d;
 }
 
-////////////
-// INTERFACE
+/******************************************************************************
+ * INTERFACE                                                                  *
+ ******************************************************************************/
 
 // math limit for error
 #define EPSILON 0.001f
 
 // hardcoded because it's hardware based
-#define NUM_OF_LEDS 4
+#define NUM_OF_LEDS 40
 
 // pulse width modulation (PWM)
 #define PWM_MOD 8
@@ -450,7 +461,20 @@ void LedArray::_fprintDisplay (FILE* stream) {
     clearScreen();
 
     for (int i = 0; i < n; i++) {
-        screen[(int)x[i]][(int)y[i]] = (char) (0x30 + pwm[i]);
+        //screen[(int)x[i]][(int)y[i]] = (char) (0x30 + pwm[i]);
+        char c = '?';
+        if (((float) pwm[i] / PWM_MAX) > 0.9) {
+            c = 'X';
+        } else if (((float) pwm[i] / PWM_MAX) > 0.6) {
+            c = '|';
+        } else if (((float) pwm[i] / PWM_MAX) > 0.4) {
+            c = ':';
+        } else if (((float) pwm[i] / PWM_MAX) > 0.1) {
+            c = '.';
+        } else {
+            c = ' ';
+        }
+        screen[(int)x[i]][(int)y[i]] = c;
     }
     _fprintScreen(stream);
 }
@@ -579,8 +603,9 @@ void LedArray::calculatePwm (void) {
     }
 }
 
-///////
-// MAIN
+/******************************************************************************
+ * MAIN                                                                       *
+ ******************************************************************************/
 
 int main (void) {
     printf("Hello, brave, new World!\n");
@@ -593,8 +618,11 @@ int main (void) {
     //leds.printConnections();
     //leds._fprintConnectionSum(stdout);
 
-    //leds.calculatePwm();
-    //leds.printDisplay();
+    for (int i = 0; i < 10; i++) {
+        leds.calculatePwm();
+        leds.printDisplay();
+        delay(0.1f);
+    }
 
     printf("Good-bye, cruel World!\n");
     return 0;
