@@ -1,10 +1,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
-#include <climits>
 #include <ctime>
-#include <algorithm>
-#include <functional>
 
 using namespace std;
 
@@ -59,14 +56,57 @@ enum ledMode_t {
     calcMode = 3
 };
 
-// used for setting up connections
+// used for sorting connections
 struct index_t {
     int i;
     int j;
 };
 
-bool compare (index_t a, index_t b, float** dist) {
+void printIndices (index_t* indices, float** dist, int k) {
+    for (int i = 0; i < k; i++) {
+        int a = indices[i].i;
+        int b = indices[i].j;
+        printf("k = %2d    i = %2d    j = %2d    d = %5.2f\n", i, a, b, dist[a][b]);
+    }
+    printf("\n");
+}
+
+bool lessThan (index_t a, index_t b, float** dist) {
     return dist[a.i][a.j] < dist[b.i][b.j];
+}
+
+int quicklyPartitionIndices (index_t* indices, float** dist, int lo, int hi) {
+    index_t pivot = indices[lo];
+    lo--;
+    hi++;
+
+    while (true) {
+        while (lessThan(indices[++lo], pivot, dist));
+
+        while (lessThan(pivot, indices[--hi], dist));
+
+        if (lo >= hi) {
+            return hi;
+        }
+
+        index_t a  = indices[lo];
+        indices[lo] = indices[hi];
+        indices[hi] = a;
+    }
+}
+
+void recQuicklySortIndices (index_t* indices, float** dist, int k, int lo, int hi) {
+    // adapted from wikipedia
+    if (lo < hi) {
+        //printIndices(indices, dist, k);
+        int p = quicklyPartitionIndices(indices, dist, lo, hi);
+        recQuicklySortIndices(indices, dist, k, lo, p);
+        recQuicklySortIndices(indices, dist, k, p + 1, hi);
+    }
+}
+
+void quicklySortIndices (index_t* indices, float** dist, int k) {
+    recQuicklySortIndices(indices, dist, k, 0, k-1);
 }
 
 // math
@@ -288,7 +328,7 @@ void LedArray::getConnect (void) {
     }
 
     // sort lines fron sortest to longest
-    sort(&indices[0], &indices[k], bind(compare,  placeholders::_1, placeholders::_2, dist));
+    quicklySortIndices(indices, dist, k);
 
     // for each line (from shortest to longest)
     //     if line exists
@@ -302,7 +342,7 @@ void LedArray::getConnect (void) {
     for (int i = 0; i < k; i++) {
         int a = indices[i].i;
         int b = indices[i].j;
-        //printf("k = %2d    i = %2d    j = %2d    d = %5.2f\n", i, a, b, dist[a][b]);
+        printf("k = %2d    i = %2d    j = %2d    d = %5.2f\n", i, a, b, dist[a][b]);
         if (connect[a][b]) {
             for (int j = i+1; j < k; j++) {
                 int c = indices[j].i;
@@ -315,7 +355,7 @@ void LedArray::getConnect (void) {
                     linesIntersect(a, b, c, d)) {
                     connect[c][d] = false;
                     connect[d][c] = false;
-                    //printf("    i = %2d    j = %2d    d = %5.2f\n", c, d, dist[c][d]);
+                    printf("    i = %2d    j = %2d    d = %5.2f\n", c, d, dist[c][d]);
                 }
             }
         }
@@ -547,16 +587,14 @@ int main (void) {
 
     srand(time(NULL));
 
-    for (int i = 0; i < 100; i++) {
-	    LedArray leds;
+    LedArray leds;
 
-	    //leds.printData();
- 	   //leds.printConnections();
- 	   leds._fprintConnectionSum(stdout);
+    //leds.printData();
+    //leds.printConnections();
+    //leds._fprintConnectionSum(stdout);
 
-        //leds.calculatePwm();
-        //leds.printDisplay();
-    }
+    //leds.calculatePwm();
+    //leds.printDisplay();
 
     printf("Good-bye, cruel World!\n");
     return 0;
