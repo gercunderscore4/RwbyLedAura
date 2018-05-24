@@ -9,6 +9,9 @@
 // math limit for error
 #define EPSILON 0.001f
 
+// float print precision
+#define FLPR 2
+
 // hardcoded because it's hardware based
 #define NUM_OF_LEDS 32
 
@@ -335,54 +338,49 @@ void LedArray::getConnect (void) {
 }
 
 void LedArray::printPoints (void) {
-    Serial.print("POINTS:\n");
-    Serial.print("  i     x     y\n");
+    Serial.print("points = [\n");
     for (int i = 0; i < n; i++) {
-        Serial.print("%3d %5.2f %5.2f\n", i, x[i], y[i]);
+        Serial.print("          ");
+        Serial.print(x[i], FLPR);
+        Serial.print(", ");
+        Serial.print(y[i], FLPR);
+        Serial.print(";\n");
     }
-    Serial.print("\n");
+    Serial.print("          ];\n\n");
 }
 
 void LedArray::printDistMatrix (void {
-    Serial.print("distance:\n");
-    Serial.print("      ");
-    for (int i = 0; i < n; i++) {
-        Serial.print("   %3d", i);
-    }
-    Serial.print("\n");
+    Serial.print("distance = [\n")
     for (int j = 0; j < n; j++) {
-        Serial.print("   %3d", j);
         for (int i = 0; i < n; i++) {
-            Serial.print(" %5.2f", dist[i][j]);
+            Serial.print(dist[i][j], FLPR);
+            Serial.print(", ");
         }
-        Serial.print("\n");
+        Serial.print(";\n");
     }
-    Serial.print("\n");
+    Serial.print("            ];\n\n");
 }
 
 void LedArray::printConnectMatrix (void {
-    Serial.print("connection:\n");
-    Serial.print("   ");
-    for (int i = 0; i < n; i++) {
-        Serial.print("%3d", i);
-    }
-    Serial.print("\n");
+    Serial.print("connection = [\n");
     for (int j = 0; j < n; j++) {
-        Serial.print("%3d", j);
         for (int i = 0; i < n; i++) {
-            Serial.print("  %c", connect[i][j] ? '1' : '.');
+            Serial.print((int)connect[i][j]);
+            Serial.print(", ");
         }
-        Serial.print("\n");
+        Serial.print(";\n");
     }
-    Serial.print("\n");
+    Serial.print("              ];\n\n");
 }
 
 void LedArray::printData (void {
-    Serial.print("N = %d\n\n", n);
-    printPoints(stream);
-    printDistMatrix(stream);
-    printConnectMatrix(stream);
-    printConnectionSum(stream);
+    Serial.print("N = );
+    Serial.print(n);
+    Serial.print(";\n\n");
+    printPoints();
+    printDistMatrix();
+    printConnectMatrix();
+    printConnectionSum();
 }
 
 void LedArray::printConnectionSum (void) {
@@ -393,7 +391,13 @@ void LedArray::printConnectionSum (void) {
             sum += (int) connect[i][j];
         }
     }
-    Serial.print("connection sum    expected: %d    actual: %d\n", ((n * 2) - 3) * 2, sum);
+    Serial.print("% expected connection min:");
+    Serial.println((2 * n) - 3);
+    Serial.print("% expected connection max:");
+    Serial.println((3 * n) - 6);
+    Serial.print("% actual connection sum:");
+    Serial.println(sum);
+    Serial.print("\n");
 }
 
 void LedArray::calculatePwm (void) {
@@ -425,7 +429,7 @@ void LedArray::calculatePwm (void) {
  ******************************************************************************/
 
 void setup (void) {
-    Serial.println("Hello.");
+    Serial.println("% Hello.");
 
     LedArray leds;
     leds.printData();
