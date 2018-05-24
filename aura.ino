@@ -27,8 +27,12 @@
 #define SER7 7
 #define RCLK  8
 #define SRCLK 9
+
 #define SW0 10
 #define SW1 11
+
+// LED_BUILTIN 13
+
 #define SEN_L A0
 #define SEN_R A1
 #define SEN_C A2
@@ -41,20 +45,18 @@ enum ledMode_t {
     calcMode = 3
 };
 
+// random float, [0,1]
+#define RAND_MAX 0x7FFF
+
+float randFloat (void) {
+    return (float) random(RAND_MAX) / RAND_MAX;
+}
+
 // used for sorting connections
 struct index_t {
     int i;
     int j;
 };
-
-void printIndices (index_t* indices, float** dist, int k) {
-    for (int i = 0; i < k; i++) {
-        int a = indices[i].i;
-        int b = indices[i].j;
-        printf("k = %2d    i = %2d    j = %2d    d = %5.2f\n", i, a, b, dist[a][b]);
-    }
-    printf("\n");
-}
 
 bool lessThan (index_t a, index_t b, float** dist) {
     return dist[a.i][a.j] < dist[b.i][b.j];
@@ -83,7 +85,6 @@ int quicklyPartitionIndices (index_t* indices, float** dist, int lo, int hi) {
 void recQuicklySortIndices (index_t* indices, float** dist, int k, int lo, int hi) {
     // adapted from wikipedia
     if (lo < hi) {
-        //printIndices(indices, dist, k);
         int p = quicklyPartitionIndices(indices, dist, lo, hi);
         recQuicklySortIndices(indices, dist, k, lo, p);
         recQuicklySortIndices(indices, dist, k, p + 1, hi);
@@ -122,19 +123,6 @@ public:
     bool linesIntersect (int i1, int i2, int i3, int i4);
     void getConnect (void);
 
-    void drawLine(int i,int j);
-    void _fprintScreen (FILE* stream);
-
-    void _fprintPoints (FILE* stream);
-    void _fprintDistMatrix (FILE* stream);
-    void _fprintConnectMatrix (FILE* stream);
-    void _fprintConnectionSum(FILE* stream);
-    void _fprintData (FILE* stream);
-
-    void _fprintDisplay (FILE* stream);
-    void _fprintConnections (FILE* stream);
-
-
     LedArray (void);
     ~LedArray (void);
 
@@ -146,20 +134,16 @@ public:
     void printPoints (void);
     void printConnectMatrix (void);
     void printDistMatrix (void);
-
-    void fprintData (void);
-    void fprintDisplay (void);
-    void fprintConnections (void);
 };
 
 LedArray::LedArray (void) {
-	n = 0;
-	x = NULL;
-	y = NULL;
-	pwm = NULL;
-	dist = NULL;
-	connect = NULL;
-	
+    n = 0;
+    x = NULL;
+    y = NULL;
+    pwm = NULL;
+    dist = NULL;
+    connect = NULL;
+    
     getXY();
     getDist();
     getConnect();
@@ -180,7 +164,7 @@ LedArray::~LedArray (void) {
     free(dist);
     free(connect);
     dist = NULL;
-	connect = NULL;
+    connect = NULL;
 
     free(pwm);
     pwm = NULL;
@@ -190,11 +174,16 @@ void LedArray::getXY (void) {
     n = NUM_OF_LEDS;
     x = (float*) calloc(n, sizeof(float));
     y = (float*) calloc(n, sizeof(float));
-    for (int i = 0; i < n; i++) {
-        x[i] = ((float) rand() / RAND_MAX) * WIDTH;
-        y[i] = ((float) rand() / RAND_MAX) * HEIGHT;
 
-        //float t = (((float) rand()) / RAND_MAX) * 6.28f;
+    // this section should be all hardcoded for final version
+
+    // use random values for testing
+    for (int i = 0; i < n; i++) {
+        x[i] = randFloat() * WIDTH;
+        y[i] = randFloat() * HEIGHT;
+
+        // random values in a circle
+        //float t = randFloat() * 2 * PI;
         //x[i] = (WIDTH  / 2.0f) + (WIDTH  * 0.4f * cos(t));
         //y[i] = (HEIGHT / 2.0f) + (HEIGHT * 0.4f * sin(t));
     }
@@ -327,7 +316,6 @@ void LedArray::getConnect (void) {
     for (int i = 0; i < k; i++) {
         int a = indices[i].i;
         int b = indices[i].j;
-        printf("k = %2d    i = %2d    j = %2d    d = %5.2f\n", i, a, b, dist[a][b]);
         if (connect[a][b]) {
             for (int j = i+1; j < k; j++) {
                 int c = indices[j].i;
@@ -340,65 +328,64 @@ void LedArray::getConnect (void) {
                     linesIntersect(a, b, c, d)) {
                     connect[c][d] = false;
                     connect[d][c] = false;
-                    printf("    i = %2d    j = %2d    d = %5.2f\n", c, d, dist[c][d]);
                 }
             }
         }
     }
 }
 
-void LedArray::_fprintPoints (FILE* stream) {
-    fprintf(stream, "POINTS:\n");
-    fprintf(stream, "  i     x     y\n");
+void LedArray::printPoints (void) {
+    Serial.print("POINTS:\n");
+    Serial.print("  i     x     y\n");
     for (int i = 0; i < n; i++) {
-        fprintf(stream, "%3d %5.2f %5.2f\n", i, x[i], y[i]);
+        Serial.print("%3d %5.2f %5.2f\n", i, x[i], y[i]);
     }
-    fprintf(stream, "\n");
+    Serial.print("\n");
 }
 
-void LedArray::_fprintDistMatrix (FILE* stream) {
-    fprintf(stream, "distance:\n");
-    fprintf(stream, "      ");
+void LedArray::printDistMatrix (void {
+    Serial.print("distance:\n");
+    Serial.print("      ");
     for (int i = 0; i < n; i++) {
-        fprintf(stream, "   %3d", i);
+        Serial.print("   %3d", i);
     }
-    fprintf(stream, "\n");
+    Serial.print("\n");
     for (int j = 0; j < n; j++) {
-        fprintf(stream, "   %3d", j);
+        Serial.print("   %3d", j);
         for (int i = 0; i < n; i++) {
-            fprintf(stream, " %5.2f", dist[i][j]);
+            Serial.print(" %5.2f", dist[i][j]);
         }
-        fprintf(stream, "\n");
+        Serial.print("\n");
     }
-    fprintf(stream, "\n");
+    Serial.print("\n");
 }
 
-void LedArray::_fprintConnectMatrix (FILE* stream) {
-    fprintf(stream, "connection:\n");
-    fprintf(stream, "   ");
+void LedArray::printConnectMatrix (void {
+    Serial.print("connection:\n");
+    Serial.print("   ");
     for (int i = 0; i < n; i++) {
-        fprintf(stream, "%3d", i);
+        Serial.print("%3d", i);
     }
-    fprintf(stream, "\n");
+    Serial.print("\n");
     for (int j = 0; j < n; j++) {
-        fprintf(stream, "%3d", j);
+        Serial.print("%3d", j);
         for (int i = 0; i < n; i++) {
-            fprintf(stream, "  %c", connect[i][j] ? '1' : '.');
+            Serial.print("  %c", connect[i][j] ? '1' : '.');
         }
-        fprintf(stream, "\n");
+        Serial.print("\n");
     }
-    fprintf(stream, "\n");
+    Serial.print("\n");
 }
 
-void LedArray::_fprintData (FILE* stream) {
-    fprintf(stream, "N = %d\n\n", n);
-    _fprintPoints(stream);
-    //_fprintDistMatrix(stream);
-    _fprintConnectMatrix(stream);
-    _fprintConnectionSum(stream);
+void LedArray::printData (void {
+    Serial.print("N = %d\n\n", n);
+    printPoints(stream);
+    printDistMatrix(stream);
+    printConnectMatrix(stream);
+    printConnectionSum(stream);
 }
 
-void LedArray::_fprintConnectionSum(FILE* stream) {
+void LedArray::printConnectionSum (void) {
     // determine if there are the right number of connections
     int sum = 0;
     for (int i = 0; i < n; i++) {
@@ -406,151 +393,7 @@ void LedArray::_fprintConnectionSum(FILE* stream) {
             sum += (int) connect[i][j];
         }
     }
-    fprintf(stream, "connection sum    expected: %d    actual: %d\n", ((n * 2) - 3) * 2, sum);
-}
-
-void LedArray::_fprintScreen(FILE* stream) {
-    fprintf(stream, "+");
-    for (int i = 0; i < WIDTH; i++) {
-        fprintf(stream, "-");
-    }
-    fprintf(stream, "+\n");
-
-    for (int j = 0; j < HEIGHT; j++) {
-        fprintf(stream, "|");
-        for (int i = 0; i < WIDTH; i++) {
-            fprintf(stream, "%c", screen[i][j]);
-        }
-        fprintf(stream, "|\n");
-    }
-
-    fprintf(stream, "+");
-    for (int i = 0; i < WIDTH; i++) {
-        fprintf(stream, "-");
-    }
-    fprintf(stream, "+\n");
-}
-
-void LedArray::_fprintDisplay (FILE* stream) {
-    clearScreen();
-
-    for (int i = 0; i < n; i++) {
-        //screen[(int)x[i]][(int)y[i]] = (char) (0x30 + pwm[i]);
-        char c = '?';
-        if (((float) pwm[i] / PWM_MAX) > 0.9) {
-            c = 'X';
-        } else if (((float) pwm[i] / PWM_MAX) > 0.6) {
-            c = '|';
-        } else if (((float) pwm[i] / PWM_MAX) > 0.4) {
-            c = ':';
-        } else if (((float) pwm[i] / PWM_MAX) > 0.1) {
-            c = '.';
-        } else {
-            c = ' ';
-        }
-        screen[(int)x[i]][(int)y[i]] = c;
-    }
-    _fprintScreen(stream);
-}
-
-void LedArray::drawLine(int i,int j) {
-    // *sigh*, can't think of a good algorithm
-    // let's just go along x then go along y
-    float x1 = x[i];
-    float y1 = y[i];
-    float x2 = x[j];
-    float y2 = y[j];
-    float dx = x2 - x1;
-    float dy = y2 - y1;
-    float xoy = dx/dy;
-    float yox = dy/dx;
-    int dirx = (x2 > x1) ? 1 : -1;
-    int diry = (y2 > y1) ? 1 : -1;
-
-    //printf("From: %5.2f %5.2f\n", x1, y1);
-    //printf("To:   %5.2f %5.2f\n", x2, y2);
-
-    for (int t = 0; abs(t) < (int)abs(dx); t += dirx) {
-        int xt = (int)(x1 + t);
-        int yt = (int)(y1 + (yox * t));
-        screen[xt][yt] = '.';
-        //printf("x     %2d %2d\n", xt, yt);
-    }
-    for (int t = 0; abs(t) < (int)abs(dy); t += diry) {
-        int xt = (int)(x1 + (xoy * t));
-        int yt = (int)(y1 + t);
-        screen[xt][yt] = '.';
-        //printf("y     %2d %2d\n", xt, yt);
-    }
-
-    screen[(int)x[i]][(int)y[i]] = getHexChar(i);
-    screen[(int)x[j]][(int)y[j]] = getHexChar(j);
-}
-
-void LedArray::_fprintConnections (FILE* stream) {
-    clearScreen();
-
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-            if (connect[i][j]) {
-                drawLine(i, j);
-            }
-        }
-    }
-
-    for (int i = 0; i < n; i++) {
-        screen[(int)x[i]][(int)y[i]] = getHexChar(i);
-    }
-
-    _fprintScreen(stream);
-}
-
-void LedArray::printPoints (void) {
-    _fprintPoints(stdout);
-}
-
-void LedArray::printDistMatrix (void) {
-    _fprintDistMatrix(stdout);
-}
-
-void LedArray::printConnectMatrix (void) {
-    _fprintConnectMatrix(stdout);
-}
-
-void LedArray::printData (void) {
-    _fprintData(stdout);
-}
-
-void LedArray::printDisplay (void) {
-    _fprintDisplay(stdout);
-}
-
-void LedArray::printConnections (void) {
-    _fprintConnections(stdout);
-}
-
-void LedArray::fprintData (void) {
-    FILE* fout = fopen("aura_data.txt", "w");
-    if (fout != NULL) {
-        _fprintData(fout);
-        fclose(fout);
-    }
-}
-
-void LedArray::fprintDisplay (void) {
-    FILE* fout = fopen("aura_display.txt", "w");
-    if (fout != NULL) {
-        _fprintDisplay(fout);
-        fclose(fout);
-    }
-}
-
-void LedArray::fprintConnections (void) {
-    FILE* fout = fopen("aura_connect.txt", "w");
-    if (fout != NULL) {
-        _fprintConnections(fout);
-        fclose(fout);
-    }
+    Serial.print("connection sum    expected: %d    actual: %d\n", ((n * 2) - 3) * 2, sum);
 }
 
 void LedArray::calculatePwm (void) {
