@@ -65,7 +65,7 @@ bool lessThan (index_t a, index_t b, float** dist) {
     return dist[a.i][a.j] < dist[b.i][b.j];
 }
 
-int quicklyPartitionIndices (index_t* indices, float** dist, int lo, int hi) {
+int quicklyPartition (index_t* indices, float** dist, int lo, int hi) {
     index_t pivot = indices[lo];
     lo--;
     hi++;
@@ -85,17 +85,17 @@ int quicklyPartitionIndices (index_t* indices, float** dist, int lo, int hi) {
     }
 }
 
-void recQuicklySortIndices (index_t* indices, float** dist, int k, int lo, int hi) {
+void recQuicklySort (index_t* indices, float** dist, int k, int lo, int hi) {
     // adapted from wikipedia
     if (lo < hi) {
-        int p = quicklyPartitionIndices(indices, dist, lo, hi);
-        recQuicklySortIndices(indices, dist, k, lo, p);
-        recQuicklySortIndices(indices, dist, k, p + 1, hi);
+        int p = quicklyPartition(indices, dist, lo, hi);
+        recQuicklySort(indices, dist, k, lo, p);
+        recQuicklySort(indices, dist, k, p + 1, hi);
     }
 }
 
-void quicklySortIndices (index_t* indices, float** dist, int k) {
-    recQuicklySortIndices(indices, dist, k, 0, k-1);
+void quicklySort (index_t* indices, float** dist, int k) {
+    recQuicklySort(indices, dist, k, 0, k-1);
 }
 
 // math
@@ -137,6 +137,7 @@ public:
     void printPoints (void);
     void printConnectMatrix (void);
     void printDistMatrix (void);
+    void printConnectionSum(void);
 };
 
 LedArray::LedArray (void) {
@@ -305,7 +306,7 @@ void LedArray::getConnect (void) {
     }
 
     // sort lines fron sortest to longest
-    quicklySortIndices(indices, dist, k);
+    quicklySort(indices, dist, k);
 
     // for each line (from shortest to longest)
     //     if line exists
@@ -349,8 +350,8 @@ void LedArray::printPoints (void) {
     Serial.print("          ];\n\n");
 }
 
-void LedArray::printDistMatrix (void {
-    Serial.print("distance = [\n")
+void LedArray::printDistMatrix (void) {
+    Serial.print("distance = [\n");
     for (int j = 0; j < n; j++) {
         for (int i = 0; i < n; i++) {
             Serial.print(dist[i][j], FLPR);
@@ -361,7 +362,7 @@ void LedArray::printDistMatrix (void {
     Serial.print("            ];\n\n");
 }
 
-void LedArray::printConnectMatrix (void {
+void LedArray::printConnectMatrix (void) {
     Serial.print("connection = [\n");
     for (int j = 0; j < n; j++) {
         for (int i = 0; i < n; i++) {
@@ -373,8 +374,8 @@ void LedArray::printConnectMatrix (void {
     Serial.print("              ];\n\n");
 }
 
-void LedArray::printData (void {
-    Serial.print("N = );
+void LedArray::printData (void) {
+    Serial.print("N = ");
     Serial.print(n);
     Serial.print(";\n\n");
     printPoints();
