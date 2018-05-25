@@ -55,47 +55,53 @@ float randFloat (void) {
     return (float) random(RAND_MAX) / RAND_MAX;
 }
 
-// used for sorting connections
-struct index_t {
-    int i;
-    int j;
-};
+// sort connections
 
-bool lessThan (index_t a, index_t b, float** dist) {
-    return dist[a.i][a.j] < dist[b.i][b.j];
+bool lessThan (int a_i, int a_j, int b_i, int b_j, float** dist) {
+    return dist[a_i][a_j] < dist[b_i][b_j];
 }
 
-int quicklyPartition (index_t* indices, float** dist, int lo, int hi) {
-    index_t pivot = indices[lo];
+int quicklyPartition (int* indices_i, int* indices_j, float** dist, int lo, int hi) {
+    // pivot
+    int p_i = indices_i[lo];
+    int p_j = indices_j[lo];
     lo--;
     hi++;
 
     while (true) {
-        while (lessThan(indices[++lo], pivot, dist));
+    	do {
+    		lo++;
+    	} while (lessThan(indices_i[lo], indices_j[lo], p_i, p_j, dist));
 
-        while (lessThan(pivot, indices[--hi], dist));
+        do {
+        	hi--;
+        } while (lessThan(p_i, p_j, indices_i[hi], indices_j[hi], dist));
 
         if (lo >= hi) {
             return hi;
         }
 
-        index_t a  = indices[lo];
-        indices[lo] = indices[hi];
-        indices[hi] = a;
+        int a  = indices_i[lo];
+        indices_i[lo] = indices_i[hi];
+        indices_i[hi] = a;
+
+        a  = indices_j[lo];
+        indices_j[lo] = indices_j[hi];
+        indices_j[hi] = a;
     }
 }
 
-void recQuicklySort (index_t* indices, float** dist, int k, int lo, int hi) {
+void recQuicklySort (int* indices_i, int* indices_j, float** dist, int k, int lo, int hi) {
     // adapted from wikipedia
     if (lo < hi) {
-        int p = quicklyPartition(indices, dist, lo, hi);
-        recQuicklySort(indices, dist, k, lo, p);
-        recQuicklySort(indices, dist, k, p + 1, hi);
+        int p = quicklyPartition(indices_i, indices_j, dist, lo, hi);
+        recQuicklySort(indices_i, indices_j, dist, k, lo, p);
+        recQuicklySort(indices_i, indices_j, dist, k, p + 1, hi);
     }
 }
 
-void quicklySort (index_t* indices, float** dist, int k) {
-    recQuicklySort(indices, dist, k, 0, k-1);
+void quicklySort (int* indices_i, int* indices_j,  float** dist, int k) {
+    recQuicklySort(indices_i, indices_j, dist, k, 0, k-1);
 }
 
 // math
@@ -147,6 +153,8 @@ LedArray::LedArray (void) {
     pwm = NULL;
     dist = NULL;
     connect = NULL;
+
+    Serial.begin(9600);
     
     getXY();
     getDist();
@@ -294,19 +302,20 @@ void LedArray::getConnect (void) {
         }
     }
 
-    index_t* indices = (index_t*) calloc(n * (n-1) / 2, sizeof(index_t));
+    int* indices_i = (int*) calloc(n * (n-1) / 2, sizeof(int));
+    int* indices_j = (int*) calloc(n * (n-1) / 2, sizeof(int));
     int k = 0;
     for (int i = 0; i < n; i++) {
         for (int j = 0; j < i; j++) {
-            indices[k].i = i;
-            indices[k].j = j;
+            indices_i[k] = i;
+            indices_j[k] = j;
             k++;
         }
         connect[i][i] = false;
     }
 
     // sort lines fron sortest to longest
-    quicklySort(indices, dist, k);
+    quicklySort(indices_i, indices_j, dist, k);
 
     // for each line (from shortest to longest)
     //     if line exists
@@ -318,12 +327,12 @@ void LedArray::getConnect (void) {
     // this will fail if points are same or if lines are parallel
     // those cases should be rare
     for (int i = 0; i < k; i++) {
-        int a = indices[i].i;
-        int b = indices[i].j;
+        int a = indices_i[i];
+        int b = indices_j[i];
         if (connect[a][b]) {
             for (int j = i+1; j < k; j++) {
-                int c = indices[j].i;
-                int d = indices[j].j;
+                int c = indices_i[j];
+                int d = indices_j[j];
                 if (connect[c][d] &&
                     (a != c) &&
                     (a != d) &&
@@ -336,6 +345,10 @@ void LedArray::getConnect (void) {
             }
         }
     }
+    free(indices_i);
+    indices_i = NULL;
+    free(indices_j);
+    indices_j = NULL;
 }
 
 void LedArray::printPoints (void) {
