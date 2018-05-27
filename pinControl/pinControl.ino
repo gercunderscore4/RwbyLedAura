@@ -1,12 +1,25 @@
+// switches
+#define SW0 11
+#define SW1 12
+
+#define SW_DEBOUNCE 500
+
+// sensors
+#define SEN_R A0
+#define SEN_L A1
+
+#define SEN_THRESH 100
+#define SEN_TRIGGER_TIME 2000
+
 // pins
-#define SER0 0
-#define SER1 1
-#define SER2 2
-#define SER3 3
-#define SER4 4
-#define SER5 5
-#define SER6 6
-#define SER7 7
+#define SER0 7
+#define SER1 6
+#define SER2 5
+#define SER3 4
+#define SER4 3
+#define SER5 2
+#define SER6 1
+#define SER7 0
 #define RCLK  8
 #define SRCLK 9
 
@@ -19,13 +32,14 @@
 #define SER5_OFFSET 0x28
 #define SER6_OFFSET 0x30
 #define SER7_OFFSET 0x38
-#define LED_COUNT 24
+#define LED_COUNT 32
 
 // yeah, it's backwards
 #define LED_ON  LOW
 #define LED_OFF HIGH
 
 uint8_t data[LED_COUNT];
+uint8_t pwm[LED_COUNT];
 
 void setLeds (uint8_t* data) {
     digitalWrite(RCLK, LOW);
@@ -44,21 +58,78 @@ void setLeds (uint8_t* data) {
     digitalWrite(RCLK, HIGH);
 }
 
-void clearLeds (void) {
-    digitalWrite(RCLK, LOW);
-    for (int i = 0; i < REGISTER_SIZE; i++)  {
-        digitalWrite(SER0, LED_OFF);
-        //digitalWrite(SER1, LED_OFF);
-        //digitalWrite(SER2, LED_OFF);
-        //digitalWrite(SER3, LED_OFF);
-        //digitalWrite(SER4, LED_OFF);
-        //digitalWrite(SER5, LED_OFF);
-        //digitalWrite(SER6, LED_OFF);
-        //digitalWrite(SER7, LED_OFF);
-        digitalWrite(SRCLK, HIGH);
-        digitalWrite(SRCLK, LOW);
+void clearLedData (uint8_t* data) {
+    for (int i = 0; i < LED_COUNT; i++) {
+        data[i] = LED_OFF;
     }
-    digitalWrite(RCLK, HIGH);
+}
+
+void clearLeds (uint8_t* data) {
+    clearLedData(data);
+    setLeds(data);
+}
+
+/******************************************************************************
+ * ALGORITHMS                                                                 *
+ ******************************************************************************/
+
+void linearLedLoop (uint8_t* data) {
+    for (int j = 0; j < LED_COUNT; j++) {
+        clearLedData(data);
+        data[j] = LED_ON;
+        setLeds(data);
+    }
+}
+
+void binaryLedLoop (uint8_t* data) {
+    for (int j = 0; j < LED_COUNT; j++) {
+        if (data[j] == LED_ON) {
+            data[j] = LED_OFF;
+        } else {
+            data[j] = LED_ON;
+            break;
+        }
+    }
+    setLeds(data);
+}
+
+void randomLeds (uint8_t* data) {
+    for (int i = 0; i < LED_COUNT; i++) {
+        data[i] = random(2) ? LED_ON : LED_OFF;
+    }
+    setLeds(data);
+}
+
+void dynamicRandomLeds (uint8_t* data, long int oneIn) {
+    for (int i = 0; i < LED_COUNT; i++) {
+        if (random(oneIn) == 0) {
+            //data[i] = (data[i] == LED_ON) ? LED_OFF : LED_ON;
+            data[i] = random(2) ? LED_OFF : LED_ON;
+        }
+    }
+    setLeds(data);
+}
+
+void basicSensorTriggerLoop (uint8_t* data) {
+    int sen_r_val = 0;
+    int sen_l_val = 0;
+    int sen_time = 0;
+    while (true) {
+        sen_r_val = analogRead(SEN_R);
+        sen_l_val = analogRead(SEN_L);
+        if ((sen_r_val < SEN_THRESH) ||
+            (sen_l_val < SEN_THRESH)) {
+            sen_time = millis();
+        }
+
+        if (millis() < (sen_time + SEN_TRIGGER_TIME)) {
+            dynamicRandomLeds(data, 8);
+        } else {
+            clearLeds(data);
+        }
+
+        delay(10);
+    }
 }
 
 /******************************************************************************
@@ -66,6 +137,12 @@ void clearLeds (void) {
  ******************************************************************************/
 
 void setup (void) {
+    pinMode(SW0,  INPUT);
+    pinMode(SW1,  INPUT);
+
+    pinMode(SEN_R,  INPUT);
+    pinMode(SEN_L,  INPUT);
+
     pinMode(SER0,  OUTPUT);
     pinMode(SER1,  OUTPUT);
     pinMode(SER2,  OUTPUT);
@@ -88,19 +165,15 @@ void setup (void) {
     digitalWrite(RCLK,  LOW);
     digitalWrite(SRCLK, LOW);
     
-    for (int i = 0; i < LED_COUNT; i++) {
-        data[i] = LED_OFF;
-    }
-
-    clearLeds();
-    delay(3000);
+    clearLeds(data);
 }
 
 void loop (void) {
-    for (int i = 0; i < 24; i++) {
-        data[i] = (data[i] == LED_ON) ? LED_OFF : LED_ON;
-        setLeds(data);
-        delay(1000);
-    }
-    delay(3000);
+    //dealy(100);
+    //randomLeds(data);
+    //binaryLedLoop(data);
+    //randomLeds(data, 50);
+    //dyanmicRandomLeds(data, 20, 5);
+    basicSensorTriggerLoop(data);
 }
+

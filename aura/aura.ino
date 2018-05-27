@@ -40,6 +40,15 @@
 #define SEN_R A1
 #define SEN_C A2
 
+#define SEN_R_THRESH 900
+#define SEN_L_THRESH 900
+#define SEN_C_THRESH 900
+
+#define SEN_R_DEBOUNCE 50000
+#define SEN_L_DEBOUNCE 50000
+#define SEN_C_DEBOUNCE 50000
+
+
 // settings
 enum ledMode_t {
     testMode = 0,
